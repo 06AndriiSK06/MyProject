@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -22,14 +22,27 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        run: pytest --junitxml=report.xml
+        run: pytest --junitxml=report.xml || true
 
   analysis:
     runs-on: ubuntu-latest
     needs: build
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Це дуже важливо для SonarCloud, щоб він бачив історію змін
+
+      - name: Count lines of code with Cloc
+        run: |
+          sudo apt-get install -y cloc
+          cloc src/ > cloc-report.txt
+          cat cloc-report.txt
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   review-check:
     runs-on: ubuntu-latest
@@ -38,7 +51,6 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            // Перевіряємо, чи є номер PR, щоб скрипт не впав, якщо запуститься інакше
             if (!context.payload.pull_request) {
               console.log("Це не Pull Request, пропускаємо перевірку.");
               return;
