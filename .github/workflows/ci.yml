@@ -30,3 +30,26 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+  review-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Перевірка наявності схваленого код-рев’ю
+        uses: actions/github-script@v6
+        with:
+          script: |
+            // Перевіряємо, чи є номер PR, щоб скрипт не впав, якщо запуститься інакше
+            if (!context.payload.pull_request) {
+              console.log("Це не Pull Request, пропускаємо перевірку.");
+              return;
+            }
+            const prNumber = context.payload.pull_request.number;
+            const {data: reviews} = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            const approved = reviews.some(review => review.state === 'APPROVED');
+            if (!approved) {
+              core.setFailed("Код-рев’ю не схвалено");
+            }
